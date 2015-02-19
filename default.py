@@ -12,10 +12,8 @@ import xbmcaddon
 import json
 import datetime
 
-#addon = xbmcaddon.Addon()
-#addonID = addon.getAddonInfo('id')
-addonID = 'plugin.video.southpark_de'
-addon = xbmcaddon.Addon(id=addonID)
+addon = xbmcaddon.Addon()
+addonID = addon.getAddonInfo('id')
 socket.setdefaulttimeout(30)
 pluginhandle = int(sys.argv[1])
 xbox = xbmc.getCondVisibility("System.Platform.xbox")
@@ -25,27 +23,15 @@ useThumbAsFanart = addon.getSetting("useThumbAsFanart") == "true"
 showSubtitles = addon.getSetting("showSubtitles") == "true"
 forceViewMode = addon.getSetting("forceViewMode") == "true"
 viewMode = str(addon.getSetting("viewMode"))
-baseUrls = ["southparkstudios.se", "southparkstudios.no", "southparkstudios.fi", "southparkstudios.dk", "southpark.nl", "southpark.de", "southpark.cc.com", "-"]
-baseUrl = addon.getSetting("country")
-baseUrl = baseUrls[int(baseUrl)]
+baseUrl = "southpark.cc.com"
 baseUrlForPlayer = "southparkstudios.com"
-language = addon.getSetting("language")
-language = ["de", "en"][int(language)]
+language = ["en"]
 httpPrefix = "http://"
-
-while baseUrl == "-":
-    addon.openSettings()
-    baseUrl = addon.getSetting("country")
-    baseUrl = baseUrls[int(baseUrl)]
-
 
 def index():
     content = getUrl(httpPrefix+baseUrl)
     if not "/geoblock/messages/" in content:
-        if baseUrl == "southpark.de":
-            url = "/alle-episoden"
-        else:
-            url = "/full-episodes"
+        url = "/full-episodes"
         addLink(translation(30003), httpPrefix+baseUrl+url+"/random", 'playVideo', icon)
         content = getUrl(httpPrefix+baseUrl+url)
         content = content[content.find('data-url="/feeds'):]
@@ -59,7 +45,6 @@ def index():
         xbmcplugin.endOfDirectory(pluginhandle)
     else:
         xbmc.executebuiltin('XBMC.Notification(Info:,'+str(translation(30005))+',5000)')
-
 
 def listVideos(url):
     xbmcplugin.setContent(pluginhandle, "episodes")
@@ -150,7 +135,7 @@ def playVideo(url):
                     if xbox:
                         pluginUrl = "plugin://video/South Park/?url="+urllib.quote_plus(urlNew)+"&subtitleUrl="+urllib.quote_plus(subTitleUrl)+"&mode=playVideoPart"
                     else:
-                        pluginUrl = "plugin://plugin.video.southpark_de/?url="+urllib.quote_plus(urlNew)+"&subtitleUrl="+urllib.quote_plus(subTitleUrl)+"&mode=playVideoPart"
+                        pluginUrl = "plugin://"+addonID+"/?url="+urllib.quote_plus(urlNew)+"&subtitleUrl="+urllib.quote_plus(subTitleUrl)+"&mode=playVideoPart"
                     playlist.add(pluginUrl, listitem)
         if playlist:
             xbmc.Player().play(playlist)
@@ -163,7 +148,7 @@ def playVideo(url):
 def playVideoPart(url, subtitle):
     listItem = xbmcgui.ListItem(path=url)
     xbmcplugin.setResolvedUrl(pluginhandle, True, listItem)
-    if showSubtitles and subtitle and language != "de":
+    if showSubtitles and subtitle:
         setSubtitle(subtitle)
 
 

@@ -27,8 +27,8 @@ forceViewMode = addon.getSetting("forceViewMode") == "true"
 viewMode = str(addon.getSetting("viewMode"))
 baseUrls = ["southparkstudios.se", "southparkstudios.no", "southparkstudios.fi", "southparkstudios.dk", "southpark.nl", "southpark.de", "southpark.cc.com", "-"]
 baseUrl = addon.getSetting("country")
-xbmc.log("country=" + baseUrl)
 baseUrl = baseUrls[int(baseUrl)]
+baseUrlForPlayer = "southparkstudios.com"
 language = addon.getSetting("language")
 language = ["de", "en"][int(language)]
 httpPrefix = "http://"
@@ -83,11 +83,18 @@ def playVideo(url):
     playlist = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
     playlist.clear()
     content = getUrl(url)
-    matchTitle = re.compile('<h1 itemprop="name">(.+?)</h1>', re.DOTALL).findall(content)
-    matchDesc = re.compile('<h2 itemprop="description">(.+?)</h2>', re.DOTALL).findall(content)
+    matchTitle = re.compile('property="og:title" content="(.+?)"', re.DOTALL).findall(content)
+    matchDesc = re.compile('itemprop="description">(.+?)<', re.DOTALL).findall(content)
     matchThumb = re.compile('<meta property="og:image" content="(.+?)"', re.DOTALL).findall(content)
-    matchSE = re.compile('/s(.+?)e(.+?)-', re.DOTALL).findall(content)
-    match = re.compile('http://media.mtvnservices.com/mgid:arc:episode:'+baseUrl+':(.+?)"', re.DOTALL).findall(content)
+    matchSE1 = re.compile('itemprop="episodeNumber">s(.+?)e(.+?)<', re.DOTALL).findall(content)
+    matchSE2 = re.compile('itemprop="episodeNumber" content="(.+?)"', re.DOTALL).findall(content)
+    match1 = re.compile('"http://media.mtvnservices.com/mgid:arc:episode:'+baseUrlForPlayer+':(.+?)"', re.DOTALL).findall(content)
+    match2 = re.compile('data-mgid="mgid:arc:episode:'+baseUrlForPlayer+':(.+?)"', re.DOTALL).findall(content)
+    match = []
+    if match1:
+        match = match1
+    elif match2:
+        match = match2
     if match:
         lang = ""
         if baseUrl == "southpark.de":
@@ -98,11 +105,12 @@ def playVideo(url):
             entry = spl[i]
             if not "<title>South Park Intro" in entry:
                 match = re.compile('<media:content type="text/xml" medium="video" duration="(.+?)" isDefault="true" url="(.+?)"', re.DOTALL).findall(entry)
-                url = match[0][1].replace("&amp;", "&")
-                content = getUrl(url)
+                url = match[0][1].replace("&amp;", "&").replace("&device={device}","")
+                content = getUrl(url+"&acceptMethods=hdn1")
                 matchMp4 = re.compile('width=".+?" height=".+?" type="video/mp4" bitrate="(.+?)">.+?<src>(.+?)</src>', re.DOTALL).findall(content)
+                xbmc.log("matchMp4=" + str(matchMp4))
                 matchFlv = re.compile('width=".+?" height=".+?" type="video/x-flv" bitrate="(.+?)">.+?<src>(.+?)</src>', re.DOTALL).findall(content)
-                matchCC = re.compile('<transcript kind="captions".+?src="(.+?)"', re.DOTALL).findall(content)
+                matchCC = re.compile('<transcript kind="captions".*?format="ttml" src="(.+?)"', re.DOTALL).findall(content)
                 subTitleUrl = ""
                 if matchCC:
                     subTitleUrl = matchCC[0]
@@ -118,13 +126,27 @@ def playVideo(url):
                         if int(br) > bitrate:
                             bitrate = int(br)
                             urlNew = urlTemp
+                            """
                             if "/mtvnorigin/" in urlNew:
                                 urlNew = "http://mtvni.rd.llnwd.net/44620"+urlNew[urlNew.find("/mtvnorigin/"):]
                             elif "/viacomspstrm/" in urlNew:
                                 urlNew = "http://mtvni.rd.llnwd.net/44620/mtvnorigin/"+urlNew[urlNew.find("/viacomspstrm/")+14:]
                             elif "/mtviestor/" in urlNew:
                                 urlNew = "http://mtvni.rd.llnwd.net/44620/cdnorigin"+urlNew[urlNew.find("/mtviestor/"):]
-                    listitem = xbmcgui.ListItem("S"+matchSE[0][0]+"E"+matchSE[0][1]+" - "+matchTitle[0], thumbnailImage=matchThumb[0])
+                            """
+                    try:
+                        title = matchTitle[0]
+                        if matchSE1:
+                            season = matchSE1[0][0]
+                            episode = matchSE1[0][1]
+                        elif matchSE2:
+                            season = matchSE2[0][:2]
+                            episode = matchSE2[0][2:]
+                        if "(" in title:
+                            title = title[:title.find("(")]
+                        listitem = xbmcgui.ListItem("S"+season+"E"+episode+" - "+title, thumbnailImage=matchThumb[0])
+                    except:
+                        pass
                     if xbox:
                         pluginUrl = "plugin://video/South Park/?url="+urllib.quote_plus(urlNew)+"&subtitleUrl="+urllib.quote_plus(subTitleUrl)+"&mode=playVideoPart"
                     else:
